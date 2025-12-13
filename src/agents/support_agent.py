@@ -1,18 +1,14 @@
-from typing import List
-
 from langgraph.graph import END, StateGraph, START
 from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
 from langchain_openai import ChatOpenAI
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.messages import filter_messages
 from langchain_core.messages import AIMessage
 
 from typing import List
 from pydantic import BaseModel, Field
+from typing_extensions import TypedDict
 
 from src.tools.qa_retriever_tool import vector_store
-from src.utils.state import SupervisorState
-
 
 # Data model
 class GradeDocuments(BaseModel):
@@ -46,7 +42,7 @@ structured_llm_retrieval_grader = llm.with_structured_output(GradeDocuments)
 structured_llm_hallucination_grader = llm.with_structured_output(GradeHallucinations)
 structured_llm_answer_grader = llm.with_structured_output(GradeAnswer)
 
-# Prompt
+# LLM grades documents for relevance to question
 system = """You are a grader assessing relevance of a retrieved document to a user question. \n 
     It does not need to be a stringent test. The goal is to filter out erroneous retrievals. \n
     If the document contains keyword(s) or semantic meaning related to the user question, grade it as relevant. \n
@@ -60,8 +56,9 @@ grade_prompt = ChatPromptTemplate.from_messages(
 
 retrieval_grader = grade_prompt | structured_llm_retrieval_grader
 
+# LLM generates answer using RAG
 rag_template = """You are an assistant for question-answering tasks. Use the following pieces of retrieved context to answer the question. \n
-    If you don't know the answer, just say that you don't know. Use three sentences maximum and keep the answer concise. \n
+    If you don't know the answer, just say that you don't know.
     Question: {question} \n
     Context: {context} \n
     Answer:
@@ -71,7 +68,7 @@ rag_prompt = PromptTemplate(template=rag_template, input_variables=["questions",
 
 rag_chain = rag_prompt | llm | StrOutputParser()
 
-# Prompt
+# LLM grades whether generation is grounded in facts
 system = """You are a grader assessing whether an LLM generation is grounded in / supported by a set of retrieved facts. \n 
      Give a binary score 'yes' or 'no'. 'Yes' means that the answer is grounded in / supported by the set of facts."""
 hallucination_prompt = ChatPromptTemplate.from_messages(
@@ -83,7 +80,7 @@ hallucination_prompt = ChatPromptTemplate.from_messages(
 
 hallucination_grader = hallucination_prompt | structured_llm_hallucination_grader
 
-# Prompt
+# LLM grades whether answer addresses question
 system = """You are a grader assessing whether an answer addresses / resolves a question \n 
      Give a binary score 'yes' or 'no'. Yes' means that the answer resolves the question."""
 answer_prompt = ChatPromptTemplate.from_messages(
@@ -95,7 +92,7 @@ answer_prompt = ChatPromptTemplate.from_messages(
 
 answer_grader = answer_prompt | structured_llm_answer_grader
 
-
+# LLM re-writes question for better retrieval
 system = """You a question re-writer that converts an input question to a better version that is optimized \n 
      for vectorstore retrieval. Look at the input and try to reason about the underlying semantic intent / meaning."""
 re_write_prompt = ChatPromptTemplate.from_messages(
@@ -125,7 +122,7 @@ def retrieve(state):
         state (dict): New key added to state, documents, that contains retrieved documents
     """
 
-    question = filter_messages(state["messages"], include_types="human")[-1].content
+    question = state["question"]
 
     # Retrieval
     documents = vector_store.similarity_search(question, k=5)
@@ -273,7 +270,7 @@ def finalize_response(state):
     }
 
 
-class GraphState(SupervisorState):
+class GraphState(TypedDict):
     """
     Represents the state of our graph.
 
@@ -295,7 +292,6 @@ workflow.add_node("retrieve", retrieve)  # retrieve
 workflow.add_node("grade_documents", grade_documents)  # grade documents
 workflow.add_node("generate", generate)  # generate
 workflow.add_node("transform_query", transform_query)  # transform_query
-workflow.add_node("finalize", finalize_response)  # finalize
 
 # Build graph
 workflow.add_edge(START, "retrieve")
@@ -315,11 +311,9 @@ workflow.add_conditional_edges(
     {
         "not supported": "generate",
         "not useful": "transform_query",
-        "useful": "finalize",
+        "useful": END,
     },
 )
-
-workflow.add_edge("finalize", END)
 
 # Compile
 graph = workflow.compile(name="support_agent")

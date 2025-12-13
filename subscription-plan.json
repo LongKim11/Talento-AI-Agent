@@ -1,0 +1,118 @@
+{
+  "success": true,
+  "message": "Subscription plans fetched successfully",
+  "data": {
+    "total": 3,
+    "page": 1,
+    "limit": 10,
+    "data": [
+      {
+        "_id": "98be3db6-9b49-4ad1-a44b-0414012f947b",
+        "name": "Enterprise Plan",
+        "price": 2499000,
+        "post_types": {
+          "standard": {
+            "limit": 60,
+            "duration": 60
+          },
+          "featured": {
+            "limit": 15,
+            "duration": 45
+          },
+          "premium": {
+            "limit": 10,
+            "duration": 45
+          }
+        },
+        "promotion": {
+          "discount_percent": 30,
+          "valid_until": "2025-10-31T00:00:00.000Z"
+        },
+        "description": "Large corporations, recruitment agencies, or companies with ongoing hiring needs.",
+        "highlights": [
+          "Post up to unlimited job listings",
+          "Each post active for 60 days",
+          "Top priority placement across homepage and search results",
+          "Dedicated recruitment consultant support",
+          "Custom API integration for automatic job posting from your HR system"
+        ],
+        "isActive": true,
+        "duration": 60,
+        "createdAt": "2025-10-29T14:29:02.167Z",
+        "updatedAt": "2025-10-30T15:05:36.041Z",
+        "__v": 0
+      },
+      {
+        "_id": "d6773cad-8571-4e1d-9bba-3dd1bb67dff7",
+        "name": "Basic Job",
+        "price": 299000,
+        "post_types": {
+          "standard": {
+            "limit": 15,
+            "duration": 60
+          },
+          "featured": {
+            "limit": 2,
+            "duration": 30
+          },
+          "premium": {
+            "limit": 2,
+            "duration": 30
+          }
+        },
+        "promotion": {
+          "discount_percent": 10,
+          "valid_until": "2025-12-01T00:00:00.000Z"
+        },
+        "description": "Small businesses or companies hiring occasionally.",
+        "highlights": [
+          "Post up to 5 job listings",
+          "Each post is active for 30 days",
+          "Job posts appear in standard listings",
+          "Option to extend after expiration",
+          "Edit and update posts anytime during the active period"
+        ],
+        "isActive": true,
+        "duration": 30,
+        "createdAt": "2025-10-27T05:14:17.509Z",
+        "updatedAt": "2025-10-29T14:27:34.414Z",
+        "__v": 0
+      },
+      {
+        "_id": "7a3adef5-d2f6-4718-a15c-458b698366fe",
+        "name": "Premium Plan",
+        "price": 889000,
+        "post_types": {
+          "standard": {
+            "limit": 20,
+            "duration": 45
+          },
+          "featured": {
+            "limit": 5,
+            "duration": 45
+          },
+          "premium": {
+            "limit": 5,
+            "duration": 45
+          }
+        },
+        "promotion": {
+          "discount_percent": 20,
+          "valid_until": "2025-12-31T00:00:00.000Z"
+        },
+        "description": "Growing companies looking to attract more applicants quickly.",
+        "highlights": [
+          "Post up to 20 job listings",
+          "Each post highlighted in featured section",
+          "Email support inBoosted visibility on homepage and search resultscluded",
+          "Option to renew or upgrade anytime"
+        ],
+        "isActive": true,
+        "duration": 45,
+        "createdAt": "2025-10-27T05:05:58.328Z",
+        "updatedAt": "2025-10-30T15:05:52.057Z",
+        "__v": 0
+      }
+    ]
+  }
+}

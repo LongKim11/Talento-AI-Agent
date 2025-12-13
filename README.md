@@ -1,35 +1,51 @@
-uv venv --python 3.11
+# Talento AI Agent
 
+## Setup
+
+### 1. Tạo virtual environment
+
+```bash
+uv venv --python 3.11
+```
+
+### 2. Kích hoạt virtual environment
+
+```bash
+# Linux/Mac
 source .venv/bin/activate
 
+# Windows
+.venv\Scripts\activate
+```
+
+### 3. Cài đặt dependencies
+
+```bash
 uv pip install .
+```
 
+## Quản lý dependencies
+
+### Thêm package mới
+
+```bash
 uv add <package_name>
+```
 
+### Xóa package
+
+```bash
 uv remove <package_name>
+```
 
+### Xem cây dependencies
+
+```bash
 uv tree
+```
 
-uv run main.py
+## Chạy project
 
-utils -> chunk (text, metadata) -> embedding to VectorDB
-
-tools -> search schema -> search tool
-
-tools -> web search company info
-
-curl -s --request POST \
- --url "http://localhost:2024/runs/stream" \
- --header 'Content-Type: application/json' \
- --data "{
-\"assistant_id\": \"agent\",
-\"input\": {
-\"messages\": [
-{
-\"role\": \"human\",
-\"content\": \"What is LangGraph?\"
-}
-]
-},
-\"stream_mode\": \"messages-tuple\"
-}"
+```bash
+uv run langgraph dev
+```
