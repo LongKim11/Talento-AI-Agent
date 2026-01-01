@@ -110,17 +110,16 @@ def retrieve(state):
     Output rules:
     - Return ONLY the tool result
     - Do not add explanations or comments
-    - If no relevant jobs are found, return None
     """
 
     agent = create_agent(llm, tools=[search_relevant_jobs], system_prompt=system_prompt)
 
     response = agent.invoke({"messages": [{"role": "user", "content": question}]})    
 
-    relevant_jobs = response["messages"][-1].content
-
-    relevant_jobs = json.loads(relevant_jobs) if relevant_jobs is not None else None
+    content = response["messages"][-1].content
    
+    relevant_jobs = json.loads(content) if content else None
+
     return {"relevant_jobs": relevant_jobs, "question": question}
 
 

@@ -10,7 +10,7 @@ MAX_RESULT = "5"
 
 
 @tool
-def search_relevant_jobs(title: Optional[str] = None, skills: Optional[List[str]] = None, tags: Optional[List[str]] = None, location_name: Optional[str] = None, workplace_type: Optional[str] = None, status: Optional[str] = None, salary: Optional[str] = None) -> str:
+def search_relevant_jobs(title: Optional[str] = None, skills: Optional[List[str]] = None, tags: Optional[List[str]] = None, location_name: Optional[str] = None, workplace_type: Optional[str] = None, salary: Optional[str] = None, company_name: Optional[str] = None) -> str:
     """Search for relevant jobs."""
     payload = {}
 
@@ -24,12 +24,10 @@ def search_relevant_jobs(title: Optional[str] = None, skills: Optional[List[str]
         payload["location_name"] = location_name
     if workplace_type:
         payload["workplace_type"] = workplace_type
-    if status:
-        payload["status"] = status
     if salary:
         payload["salary"] = salary  
-
-    print("============ Payload ===============", payload)
+    if company_name:
+        payload["company_name"] = company_name
 
     url = OPENSEARCH_API_BASE_URL + "?limit=" + MAX_RESULT
 
@@ -42,18 +40,17 @@ def search_relevant_jobs(title: Optional[str] = None, skills: Optional[List[str]
 
     if response.status_code != 200:
         return None
+    
     return response.json()['data']
 
-    
+# if __name__ == "__main__":
 
-if __name__ == "__main__":
-
-    result = search_relevant_jobs.invoke(
-        {
-            "title": "Data Engineer",
-            "skills": ["3 years experience"],
-            "location_name": "Hồ Chí Minh",
-            "salary": "2000"
-        }
-    )
-    print("data", result)
+#     result = search_relevant_jobs.invoke(
+#         {
+#             "title": "Data Engineer",
+#             "skills": ["3 years experience"],
+#             "location_name": "Hồ Chí Minh",
+#             "salary": "2000usd"
+#         }
+#     )
+#     print("data", result)
