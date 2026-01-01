@@ -1,16 +1,16 @@
 from langgraph.graph import END, StateGraph, START
-from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.messages import AIMessage
 from langchain.agents import create_agent
 from langchain.agents.structured_output import ToolStrategy
 
 from typing import List
 from pydantic import BaseModel, Field
 from typing_extensions import TypedDict
+import json
 
-from src.tools.job_retriever_tool import search
+from src.tools.job_retriever_tool import search_relevant_jobs
+from src.tools.web_search_tool import web_search
 
 llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
 
@@ -19,13 +19,13 @@ class ScoreRelevantJob(BaseModel):
     """Relevance score between user question and a job."""
 
     score: int = Field(
-        ge=0,
+        ge=1,
         le=10,
-        description="Overall relevance score from 0 (not relevant) to 10 (highly relevant)."
+        description="Overall relevance score from 1 (not relevant) to 10 (highly relevant)."
     )
 
     score_description: str = Field(
-        description="A brief description explaining which aspects of the job match the user question and which aspects do not."
+        description="Brief explanation of how well the job matches the user question."
     )
 
 
@@ -50,8 +50,30 @@ structured_llm_retrieval_grader = llm.with_structured_output(ScoreRelevantJob)
 
 # LLM scores relevant jobs to question
 job_score_prompt = """
-Job score prompt
+You are an AI assistant that evaluates job relevance and explains it in a conversational, recommendation-style tone.
+
+Your task is to score how well a job matches the user's question and briefly explain the key matching points and any missing aspects.
+
+Scoring rules (VERY IMPORTANT):
+- Score ranges from 1 to 10
+- 10: Job strongly matches the user's intent, role, skills, and seniority
+- 7-9: Job matches most requirements but misses minor aspects
+- 4-6: Partial match (some relevant skills or role overlap)
+- 1-3: Weak match (only vague or indirect relevance)
+
+Evaluation criteria:
+- Job title vs user intent
+- Required skills vs mentioned skills
+- Seniority / experience level
+- Domain or industry relevance
+
+Explanation rules:
+- Write from the perspective of a chatbot giving a recommendation
+- Do NOT assume information that is not explicitly in the job
+- Keep the explanation concise (2-3 sentences)
+- Use neutral, natural language
 """
+
 job_score_prompt_template = ChatPromptTemplate.from_messages(
     [
         ("system", job_score_prompt),
@@ -72,29 +94,45 @@ def retrieve(state):
         state (dict): The current graph state
 
     Returns:
-        state (dict): New key added to state, documents, that contains relevent jobs
+        state (dict): Updated state with relevant jobs
     """
 
     question = state["question"]
 
-    prompt = ""
+    system_prompt = """
+    You are a job retrieval agent.
 
-    agent = create_agent(llm, tools=[search], prompt=prompt)
+    Your task:
+    - Analyze the user's question
+    - Use the search_relevant_jobs tool to retrieve relevant job postings
+    - Do NOT fabricate job data
 
-    result = agent.invoke({"messages": [{"role": "user", "content": question}]})    
+    Output rules:
+    - Return ONLY the tool result
+    - Do not add explanations or comments
+    - If no relevant jobs are found, return None
+    """
 
-    return {"relevant_jobs": result, "question": question}
+    agent = create_agent(llm, tools=[search_relevant_jobs], system_prompt=system_prompt)
+
+    response = agent.invoke({"messages": [{"role": "user", "content": question}]})    
+
+    relevant_jobs = response["messages"][-1].content
+
+    relevant_jobs = json.loads(relevant_jobs) if relevant_jobs is not None else None
+   
+    return {"relevant_jobs": relevant_jobs, "question": question}
 
 
 def grade_relevant_jobs(state):
     """
-    Score the relevant jobs to the user question.
+    Score each relevant job against the user question.
 
     Args:
         state (dict): The current graph state
 
     Returns:
-        state (dict): Updates relavent jobs with scores
+        state (dict): Updated state with scored jobs
     """
 
     question = state["question"]
@@ -104,7 +142,7 @@ def grade_relevant_jobs(state):
         result = retrieval_grader.invoke(
             {"question": question, "job": job}
         )
-        
+
         job["score"] = result.score 
         job["score_description"] = result.score_description
 
@@ -124,12 +162,41 @@ def grade_companies(state):
 
     relevant_jobs = state["relevant_jobs"]
 
-    prompt = ""
+    prompt = """
+    You are an AI assistant that evaluates how suitable and attractive a company is as a workplace.
 
-    agent = create_agent(llm, tools=[search], prompt=prompt, response_format=ToolStrategy(EvaluateCompany))
+    Your task:
+    - Use web search to gather publicly available information about a company
+    - Evaluate how suitable and attractive the company is as a workplace
+
+    Evaluation criteria:
+    - Company culture and values
+    - Employee reviews and overall reputation
+    - Work-life balance and management quality (if available)
+
+    Rating rules:
+    - Score ranges from 1 to 10
+    - 9-10: Excellent workplace with strong culture and positive reviews
+    - 6-8: Generally good workplace with minor concerns
+    - 4-5: Mixed or average reputation
+    - 1-3: Poor workplace or significant concerns
+
+    Output requirements (STRICT):
+    - Do NOT assume missing information
+    - If no company information is found, assign a rating of 5 and state that information is insufficient
+    - Use a neutral, chatbot-style recommendation tone
+    - Be concise and factual (2-3 sentences)
+    """
+
+    agent = create_agent(llm, tools=[web_search], system_prompt=prompt, response_format=ToolStrategy(EvaluateCompany))
 
     for job in relevant_jobs:
-        result = agent.invoke({"messages": [{"role": "user", "content": ""}]})
+        company_name = job["company_name"]
+
+        response = agent.invoke({"messages": [{"role": "user", "content": f"Company name: {company_name}"}]})
+        
+        result = response["structured_response"]
+
         job["company_rating"] = result.company_rating
         job["company_rating_description"] = result.company_rating_description
 
@@ -144,7 +211,7 @@ def decide_to_grade(state):
         state (dict): The current graph state
 
     Returns:
-        str: Binary decision for next node to call
+        str: Decision for next node to call
     """
 
     relevant_jobs = state["relevant_jobs"]

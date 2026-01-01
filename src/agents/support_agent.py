@@ -252,24 +252,6 @@ def grade_generation_v_documents_and_question(state):
     else:
         return "not supported"
 
-def finalize_response(state):
-    """
-    Format final response to return to supervisor
-    
-    Args:
-        state (dict): The current graph state
-        
-    Returns:
-        state (dict): State with formatted message
-    """
-    
-    generation = state.get("generation", "I couldn't find an answer.")
-    
-    return {
-        "messages": [AIMessage(content=generation)]
-    }
-
-
 class GraphState(TypedDict):
     """
     Represents the state of our graph.
