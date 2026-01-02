@@ -12,6 +12,8 @@ import json
 from src.tools.job_retriever_tool import search_relevant_jobs
 from src.tools.web_search_tool import web_search
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
 llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
 
 # Data model
@@ -50,28 +52,28 @@ structured_llm_retrieval_grader = llm.with_structured_output(ScoreRelevantJob)
 
 # LLM scores relevant jobs to question
 job_score_prompt = """
-You are an AI assistant that evaluates job relevance and explains it in a conversational, recommendation-style tone.
+You are an expert career advisor assessing whether a job posting matches or is better-than-expected relative to a user's question.
 
-Your task is to score how well a job matches the user's question and briefly explain the key matching points and any missing aspects.
+Your task is to assign a relevance score and provide a short, natural recommendation explaining the overall fit.
 
-Scoring rules (VERY IMPORTANT):
-- Score ranges from 1 to 10
-- 10: Job strongly matches the user's intent, role, skills, and seniority
-- 7-9: Job matches most requirements but misses minor aspects
-- 4-6: Partial match (some relevant skills or role overlap)
-- 1-3: Weak match (only vague or indirect relevance)
+Scoring rules (1-10)
+- 10: Strong match with the user's intent, role, skills, and seniority
+- 7-9: Matches most requirements
+- 4-6: Partial match with some relevant skills or role overlap
+- 1-3: Weak match with only indirect or minimal relevance
 
 Evaluation criteria:
-- Job title vs user intent
-- Required skills vs mentioned skills
-- Seniority / experience level
+- Job title alignment with user intent
+- Required skills alignment with mentioned skills
+- Seniority and experience level match
 - Domain or industry relevance
 
 Explanation rules:
-- Write from the perspective of a chatbot giving a recommendation
+- Write in a natural, human-like advisory tone, as if recommending the job to a candidate
 - Do NOT assume information that is not explicitly in the job
 - Keep the explanation concise (2-3 sentences)
-- Use neutral, natural language
+
+Output language (STRICT): Vietnamese only
 """
 
 job_score_prompt_template = ChatPromptTemplate.from_messages(
@@ -110,6 +112,8 @@ def retrieve(state):
     Output rules:
     - Return ONLY the tool result
     - Do not add explanations or comments
+    
+    Output language (STRICT): Vietnamese
     """
 
     agent = create_agent(llm, tools=[search_relevant_jobs], system_prompt=system_prompt)
@@ -120,6 +124,7 @@ def retrieve(state):
    
     relevant_jobs = json.loads(content) if content else None
 
+    print("===== Retrieved relevant jobs =====", relevant_jobs)
     return {"relevant_jobs": relevant_jobs, "question": question}
 
 
@@ -137,15 +142,18 @@ def grade_relevant_jobs(state):
     question = state["question"]
     relevant_jobs = state["relevant_jobs"]
 
-    for job in relevant_jobs:
+    def grade_single_job(job):
         result = retrieval_grader.invoke(
             {"question": question, "job": job}
         )
-
-        job["score"] = result.score 
+        job["score"] = result.score
         job["score_description"] = result.score_description
+        return job
 
-    return {"relevant_jobs": relevant_jobs, "question": question}
+    with ThreadPoolExecutor(max_workers=min(10, len(relevant_jobs))) as executor:
+        graded_jobs = list(executor.map(grade_single_job, relevant_jobs))
+
+    return {"relevant_jobs": graded_jobs, "question": question}
 
 
 def grade_companies(state):
@@ -162,10 +170,10 @@ def grade_companies(state):
     relevant_jobs = state["relevant_jobs"]
 
     prompt = """
-    You are an AI assistant that evaluates how suitable and attractive a company is as a workplace.
+    You are an expert in workplace evaluation, assessing how attractive and suitable a company is for employees.
 
     Your task:
-    - Use web search to gather publicly available information about a company
+    - Use the web search tool to gather information about a company.
     - Evaluate how suitable and attractive the company is as a workplace
 
     Evaluation criteria:
@@ -173,23 +181,24 @@ def grade_companies(state):
     - Employee reviews and overall reputation
     - Work-life balance and management quality (if available)
 
-    Rating rules:
-    - Score ranges from 1 to 10
-    - 9-10: Excellent workplace with strong culture and positive reviews
+    Rating rules (1-10): 
+    - 9-10: Excellent workplace with a strong culture and consistently positive reviews
     - 6-8: Generally good workplace with minor concerns
     - 4-5: Mixed or average reputation
     - 1-3: Poor workplace or significant concerns
 
     Output requirements (STRICT):
-    - Do NOT assume missing information
-    - If no company information is found, assign a rating of 5 and state that information is insufficient
-    - Use a neutral, chatbot-style recommendation tone
-    - Be concise and factual (2-3 sentences)
+    - Do not assume or infer missing information
+    - If no reliable company information is found, assign a rating of 5 and clearly state that available information is insufficient
+    - Use a neutral, professional recommendation tone
+    - Keep the explanation concise (2-3 sentences)
+
+    Output language (STRICT): Vietnamese only
     """
 
     agent = create_agent(llm, tools=[web_search], system_prompt=prompt, response_format=ToolStrategy(EvaluateCompany))
 
-    for job in relevant_jobs:
+    def grade_single_company(job):
         company_name = job["company_name"]
 
         response = agent.invoke({"messages": [{"role": "user", "content": f"Company name: {company_name}"}]})
@@ -198,8 +207,13 @@ def grade_companies(state):
 
         job["company_rating"] = result.company_rating
         job["company_rating_description"] = result.company_rating_description
+        
+        return job
 
-    return {"relevant_jobs": relevant_jobs, "question": state["question"]}
+    with ThreadPoolExecutor(max_workers=min(10, len(relevant_jobs))) as executor:
+        graded_jobs = list(executor.map(grade_single_company, relevant_jobs))
+
+    return {"relevant_jobs": graded_jobs, "question": state["question"]}
 
 
 def decide_to_grade(state):
@@ -215,7 +229,7 @@ def decide_to_grade(state):
 
     relevant_jobs = state["relevant_jobs"]
 
-    if not relevant_jobs:
+    if not relevant_jobs or len(relevant_jobs) == 0:
         return "end"
     else:
         return "grade"
@@ -251,7 +265,6 @@ workflow.add_conditional_edges(
         "grade": "grade_relevant_jobs",
     },
 )
-workflow.add_edge("retrieve", "grade_relevant_jobs")
 workflow.add_edge("grade_relevant_jobs", "grade_companies")
 workflow.add_edge("grade_companies", END)
 

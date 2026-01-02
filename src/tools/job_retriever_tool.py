@@ -29,6 +29,8 @@ def search_relevant_jobs(title: Optional[str] = None, skills: Optional[List[str]
     if company_name:
         payload["company_name"] = company_name
 
+    print("==================== PAYLOAD ====================", payload)
+
     url = OPENSEARCH_API_BASE_URL + "?limit=" + MAX_RESULT
 
     response = httpx.request(
@@ -41,6 +43,7 @@ def search_relevant_jobs(title: Optional[str] = None, skills: Optional[List[str]
     if response.status_code != 200:
         return None
     
+    print("===== OpenSearch response =====", response.json()['data'])
     return response.json()['data']
 
 # if __name__ == "__main__":
