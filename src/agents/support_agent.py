@@ -8,6 +8,8 @@ from typing import List
 from pydantic import BaseModel, Field
 from typing_extensions import TypedDict
 
+from concurrent.futures import ThreadPoolExecutor
+
 from src.tools.qa_retriever_tool import vector_store
 
 # Data model
@@ -57,20 +59,29 @@ grade_prompt = ChatPromptTemplate.from_messages(
 retrieval_grader = grade_prompt | structured_llm_retrieval_grader
 
 # LLM generates answer using RAG
-rag_template = """You are an assistant for question-answering tasks. Use the following pieces of retrieved context to answer the question. \n
-    If you don't know the answer, just say that you don't know.
-    Question: {question} \n
-    Context: {context} \n
-    Answer:
-"""
+rag_template = """You are a helpful assistant answering questions about Talento Network job platform.
+
+INSTRUCTIONS:
+- Answer based ONLY on the provided context
+- Provide complete and detailed information from the context
+- Include ALL relevant details like types, numbers, dates, and specifications
+- Break down information clearly when there are multiple categories
+- If the context doesn't contain the answer, say "I don't know"
+
+CONTEXT:
+{context}
+
+QUESTION: {question}
+
+ANSWER:"""
 
 rag_prompt = PromptTemplate(template=rag_template, input_variables=["questions", "context"])
 
 rag_chain = rag_prompt | llm | StrOutputParser()
 
 # LLM grades whether generation is grounded in facts
-system = """You are a grader assessing whether an LLM generation is grounded in / supported by a set of retrieved facts. \n 
-     Give a binary score 'yes' or 'no'. 'Yes' means that the answer is grounded in / supported by the set of facts."""
+system = """You are a grader checking if an LLM answer comes from the given documents. \n 
+     Score 'yes' if the answer is based on the documents. """
 hallucination_prompt = ChatPromptTemplate.from_messages(
     [
         ("system", system),
@@ -144,17 +155,20 @@ def grade_documents(state):
     question = state["question"]
     documents = state["documents"]
 
-    # Score each doc
-    filtered_docs = []
-    for d in documents:
+    def grade_single_document(doc):
         score = retrieval_grader.invoke(
-            {"question": question, "document": d.page_content}
+            {"question": question, "document": doc.page_content}
         )
         grade = score.binary_score
         if grade == "yes":
-            filtered_docs.append(d.page_content)
-        else:
-            continue
+            return doc.page_content
+        return None
+
+    with ThreadPoolExecutor(max_workers=min(10, len(documents))) as executor:
+        results = list(executor.map(grade_single_document, documents))
+
+    filtered_docs = [doc for doc in results if doc is not None]
+
     return {"documents": filtered_docs, "question": question}
 
 
@@ -240,12 +254,11 @@ def grade_generation_v_documents_and_question(state):
         {"documents": documents, "generation": generation}
     )
     grade = score.binary_score
-
+    
     if grade == "yes":
         score = answer_grader.invoke({"question": question, "generation": generation})
         grade = score.binary_score
         if grade == "yes":
-            state["answer"] = generation
             return "useful"
         else:
             return "not useful"

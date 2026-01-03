@@ -12,6 +12,8 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 load_dotenv()
 
+INDEX_NAME = "talento-docs"
+
 # def prepare_chunks():
 #     cwd = os.getcwd()
 
@@ -21,24 +23,27 @@ load_dotenv()
 #     loader = PyPDFLoader(file_path)
 #     docs = loader.load()
     
-#     text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
+#     text_splitter = RecursiveCharacterTextSplitter(chunk_size=600, chunk_overlap=100)
 #     chunks = text_splitter.split_documents(docs)
 
 #     return chunks
 
 pinecone_api_key = os.getenv("PINECONE_API_KEY")
 
-index_name = "talento-info"
-
 pc = Pinecone(api_key=pinecone_api_key)
 
-index = pc.Index(index_name)
+index = pc.Index(INDEX_NAME)
 
 embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
 
 vector_store = PineconeVectorStore(index=index, embedding=embeddings)
 
 # chunks = prepare_chunks()
+
+# for c in chunks:
+#     print("-----CHUNK-----")
+#     print(c.page_content)
+#     print("------------------") 
 
 # uuids = [str(uuid4()) for _ in range(len(chunks))]
 
@@ -52,12 +57,10 @@ vector_store = PineconeVectorStore(index=index, embedding=embeddings)
 #     return "\n\n".join(doc.page_content for doc in docs)
 
 # results = vector_store.similarity_search(
-#     "What is Talento Network", k=3,
+#     "có những gói đăng tin nào", k=10,
 # )
 
-# formatted = format_docs(results)
-
-# for d in format_docs(results):
+# for d in results:
 #     print("-----DOCUMENT-----")
-#     print(d)
+#     print(d.page_content)
 #     print("------------------")
