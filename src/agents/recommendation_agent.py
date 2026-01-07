@@ -105,8 +105,9 @@ def retrieve(state):
     You are a job retrieval agent.
 
     Your task:
-    - Analyze the user's question
-    - Use the search_relevant_jobs tool to retrieve relevant job postings
+    - Analyze the user's question to identify key criteria for relevant job postings.
+    - If location is mentioned, only use the city-level location (e.g. TP. Hồ Chí Minh, Hà Nội,..)
+    - Use the search_relevant_jobs tool to find job postings that match these criteria.
     - Do NOT fabricate job data
 
     Output rules:

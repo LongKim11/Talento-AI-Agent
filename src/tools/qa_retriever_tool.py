@@ -14,19 +14,19 @@ load_dotenv()
 
 INDEX_NAME = "talento-docs"
 
-# def prepare_chunks():
-#     cwd = os.getcwd()
+def prepare_chunks():
+    cwd = os.getcwd()
 
-#     file_name = "Talento-Info.pdf"
-#     file_path = cwd + "/" + file_name
+    file_name = "Talento-Info.pdf"
+    file_path = cwd + "/" + file_name
 
-#     loader = PyPDFLoader(file_path)
-#     docs = loader.load()
+    loader = PyPDFLoader(file_path)
+    docs = loader.load()
     
-#     text_splitter = RecursiveCharacterTextSplitter(chunk_size=600, chunk_overlap=100)
-#     chunks = text_splitter.split_documents(docs)
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=600, chunk_overlap=100)
+    chunks = text_splitter.split_documents(docs)
 
-#     return chunks
+    return chunks
 
 pinecone_api_key = os.getenv("PINECONE_API_KEY")
 
