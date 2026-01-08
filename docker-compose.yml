@@ -1,9 +1,10 @@
-version: '3.8'
-
 services:
   talento-ai-agent:
-    image: talento-ai-agent:1.0.4
     container_name: talento-ai-agent
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: talento-ai-agent:1.0.4
     ports:
       - "2024:2024"
     env_file:
@@ -11,7 +12,6 @@ services:
     restart: unless-stopped
     networks:
       - talento-network
-
 networks:
   talento-network:
     driver: bridge
