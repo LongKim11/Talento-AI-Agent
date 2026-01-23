@@ -2,13 +2,13 @@
 
 ## Setup
 
-### 1. Tạo virtual environment
+### 1. Create virtual environment
 
 ```bash
 uv venv --python 3.11
 ```
 
-### 2. Kích hoạt virtual environment
+### 2. Activate virtual environment
 
 ```bash
 # Linux/Mac
@@ -18,33 +18,33 @@ source .venv/bin/activate
 .venv\Scripts\activate
 ```
 
-### 3. Cài đặt dependencies
+### 3. Install dependencies
 
 ```bash
 uv pip install .
 ```
 
-## Quản lý dependencies
+## Manage dependencies
 
-### Thêm package mới
+### Add new package
 
 ```bash
 uv add <package_name>
 ```
 
-### Xóa package
+### Remove package
 
 ```bash
 uv remove <package_name>
 ```
 
-### Xem cây dependencies
+### List dependencies in tree view
 
 ```bash
 uv tree
 ```
 
-## Chạy project
+## Run project
 
 ```bash
 uv run langgraph dev
